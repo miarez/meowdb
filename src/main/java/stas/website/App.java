@@ -7,6 +7,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -14,6 +15,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
 import stas.website.Core.NoSQL;
+import stas.website.Core.SQL;
 import stas.website.Filter.Filter;
 import stas.website.Filter.Eq;
 import stas.website.Filter.In;
@@ -27,8 +29,25 @@ import com.google.gson.Gson;
 
 public class App 
 {
-    public static void main( String[] args )
+    public static void main( String[] args ) throws IOException
     {
+
+        SQL db = new SQL();
+        
+        Map<String, Object> record = new HashMap<>();
+        record.put("id", 0);
+        record.put("event", "view");
+        record.put("price", 10);
+
+        db.insert("test_2", record);
+
+
+           
+    }
+
+
+    public void noSQLDemo(){
+
         NoSQL db = new NoSQL();
 
         // Map<String, Object> record = new HashMap<>();
@@ -80,6 +99,6 @@ public class App
         List<Map<String, Object>> response = db.read("test_1", filter_list);
         Utils.pp(response);
 
-
+        
     }
 }
