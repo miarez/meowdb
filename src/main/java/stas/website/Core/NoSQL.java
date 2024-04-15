@@ -21,6 +21,8 @@ import com.google.gson.Gson;
 
 import stas.website.Utils.Utils;
 
+import stas.website.Filter.Filter;
+
 public class NoSQL {
 
     public NoSQL(){
@@ -44,7 +46,7 @@ public class NoSQL {
 
     public List<Map<String, Object>> read(
         String table_name,
-        Map<String, Object> filters
+        List<Filter> filters
     ){
 
         String filePath = "data/"+ table_name + ".txt";
@@ -58,16 +60,11 @@ public class NoSQL {
                 JSONObject json = new JSONObject(line); 
                 Map<String, Object> map = json.toMap();
 
-
                 boolean addRecord = true;
-
                 if(!filters.isEmpty()){
-                    for (Entry<String, Object> entry : filters.entrySet()) {
 
-                        String column_name = entry.getKey();
-                        Object value  = entry.getValue();
-                        Object row_value = map.get(column_name);
-                        if(!value.equals(row_value)){
+                    for (Filter filter : filters) {
+                        if(!filter.invoke(map)){
                             addRecord = false;
                         }
                     }
