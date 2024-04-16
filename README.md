@@ -16,7 +16,21 @@ https://youtu.be/F0sNGH4PQB0
 
 
 ### Stream 3: 
-#### Basic Table Schemas & Memory Blocks  ?
+#### Basic Table Schemas 
+https://www.youtube.com/watch?v=1PxSNWWRvyI
+
+
+### Stream 4: 
+#### Memory blocks, Serialization & Deserialization
+Video not up yet :)
+
+### Stream 5: 
+#### Indexes maybe? Code clean-up / refactor? Analytical functionality? joins? WHO KNOWS :D 
+
+
+
+
+
 
 
 

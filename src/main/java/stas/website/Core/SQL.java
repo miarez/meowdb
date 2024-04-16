@@ -12,15 +12,24 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Gatherer.Integrator;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
+import stas.website.Filter.Filter;
 import stas.website.Utils.Utils;
 
 public class SQL {
+
+    private static final long blockSize     = 480;
+    private static final long storageSize   = 480000;
+
+
 
     public SQL(){}
 
@@ -107,58 +116,166 @@ public class SQL {
         return schema;
     }
 
+
+
+
+
     public boolean insert(
         String table_name,
         Map<String, Object> record
     ) throws FileNotFoundException, IOException{
 
+        // validate the insert 
         Map<String, String> schema = get_schema(table_name);
         if(!validateRecord(record, schema)){
             return false;
         }
 
-        byte[] record_serialized = serializeRecord(record);
+        String file_path = "data/" + table_name + ".db";
 
+        // get the length of the current file
+        RandomAccessFile dataStream = new RandomAccessFile(file_path, "rw");
+        long fileSize = dataStream.length();
 
-        Map<String, Object> undo = deserializeRecord(record_serialized); 
+        // serialize
+        byte[] serialized = serializeRecord(schema, record);
+        long recordSize   = serialized.length;
+        
+        Map<String, Object> blockInfo = findSuitableBlock(recordSize, fileSize);
 
+        // write the record
+        dataStream.seek((int) blockInfo.get("insertionPoint"));
+        dataStream.write(serialized);
 
-        Utils.pp(undo);
-     
         return true;
+    }
+
+    public Map<String, Object> findSuitableBlock(
+        long recordSize,
+        long fileSize
+    ){
+        return prepareNewBlock(recordSize, fileSize);
+    }
+
+    public Map<String, Object> prepareNewBlock(
+        long recordSize,
+        long fileSize
+    ){
+
+        int blockId = (int) (fileSize / blockSize);
+        Utils.pp("BLOCKID : " + blockId);
+        int spaceUsedInLastBlock = (int) (fileSize % blockSize);
+
+
+        if(blockSize - spaceUsedInLastBlock < recordSize){
+            blockId++;
+            spaceUsedInLastBlock = 0;
+        }
+
+        // prepare block info
+        int insertionPoint = (int) (blockId * blockSize) + spaceUsedInLastBlock;
+        int blockSpaceUsed = (int) (spaceUsedInLastBlock + recordSize);
+
+
+        Map<String, Object> blockInfo = new HashMap<>();
+        blockInfo.put("id", blockId);
+        blockInfo.put("insertionPoint", insertionPoint);
+        blockInfo.put("block_used_space", blockSpaceUsed);
+        return blockInfo;
+    }
+
+    
+    public List<Map<String, Object>> read(
+        String table_name,
+        List<Filter> filters
+    ) throws IOException{
+
+        Map<String, String> schema = get_schema(table_name);
+
+        List<Map<String, Object>> records = new ArrayList<>();
+
+        String file_path = "data/" + table_name + ".db";
+
+        try (RandomAccessFile dataStream = new RandomAccessFile(file_path, "rw")) {
+            long fileSize = dataStream.length();
+
+            dataStream.seek(0);
+
+
+            while(dataStream.getFilePointer() < fileSize){
+
+                byte[] block = new byte[(int) blockSize];
+                try {
+                    dataStream.readFully(block);
+                    Map<String, Object> record = deserializeRecord(schema, block);
+                    boolean addRecord = true;
+                    if(!filters.isEmpty()){
+    
+                        for (Filter filter : filters) {
+                            if(!filter.invoke(record)){
+                                addRecord = false;
+                            }
+                        }
+                    }
+                    if(addRecord){
+                        records.add(record);
+                    }
+                } catch (IOException e){
+                    System.err.println("Can't read block");
+                }
+            }
+        }
+        return records;
     }
 
 
     
-    public static byte[] serializeRecord(Map<String, Object> record) {
+    public static byte[] serializeRecord(
+        Map<String, String> schema,
+        Map<String, Object> record
+    ) {
+
         ByteBuffer buffer = ByteBuffer.allocate(264); // 4 (int) + 256 (string) + 4 (int)
-        buffer.putInt((Integer) record.get("id")); // Assume id is always an Integer
+        for (Map.Entry<String, String> entry : schema.entrySet()) {
+            String key = entry.getKey();
+            String expectedType = entry.getValue();
+            Object value = record.get(key);
 
-        // Handle event as String
-        String event = (String) record.get("event");
-        byte[] eventBytes = event.getBytes(StandardCharsets.UTF_8);
-        buffer.put(eventBytes, 0, Math.min(eventBytes.length, 256));
-        buffer.position(260); // Move position to after string allocation (256 bytes from index 4)
-
-        buffer.putInt((Integer) record.get("price")); // Assume price is always an Integer
-
+            switch(expectedType){
+                case "INT":
+                    buffer.putInt((Integer) value); 
+                    break;
+                case "STRING":
+                    byte[] eventBytes = ((String) value).getBytes(StandardCharsets.UTF_8);
+                    buffer.put(eventBytes, 0, Math.min(eventBytes.length, 256));
+                    buffer.position(260);
+                    break;
+            }
+        }
         return buffer.array();
     }
 
-    public static Map<String, Object> deserializeRecord(byte[] data) {
+    public static Map<String, Object> deserializeRecord(
+        Map<String, String> schema,
+        byte[] data
+    ) {
         ByteBuffer buffer = ByteBuffer.wrap(data);
         Map<String, Object> record = new HashMap<>();
 
-        int id = buffer.getInt();
-        record.put("id", id);
-
-        byte[] stringBytes = new byte[256];
-        buffer.get(stringBytes);
-        String event = new String(stringBytes, StandardCharsets.UTF_8).trim();
-        record.put("event", event);
-
-        int price = buffer.getInt(); 
-        record.put("price", price);
+        for (Map.Entry<String, String> entry : schema.entrySet()) {
+            String key = entry.getKey();
+            String expectedType = entry.getValue();
+            switch(expectedType){
+                case "INT":
+                    record.put(key, buffer.getInt());
+                    break;
+                case "STRING":
+                    byte[] stringBytes = new byte[256];
+                    buffer.get(stringBytes);
+                    record.put(key, new String(stringBytes, StandardCharsets.UTF_8).trim());
+                    break;
+            }
+        }
         return record;
     }
 
