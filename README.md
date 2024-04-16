@@ -22,7 +22,7 @@ https://www.youtube.com/watch?v=1PxSNWWRvyI
 
 ### Stream 4: 
 #### Memory blocks, Serialization & Deserialization
-Video not up yet :)
+https://www.youtube.com/watch?v=iDt1C1cqFB8
 
 ### Stream 5: 
 #### Indexes maybe? Code clean-up / refactor? Analytical functionality? joins? WHO KNOWS :D 
