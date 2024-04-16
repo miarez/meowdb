@@ -22,14 +22,15 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import stas.website.Filter.Filter;
+import stas.website.Utils.Cast;
+import stas.website.Utils.IO;
+import stas.website.Utils.Serializer;
 import stas.website.Utils.Utils;
 
 public class SQL {
 
     private static final long blockSize     = 480;
     private static final long storageSize   = 480000;
-
-
 
     public SQL(){}
 
@@ -42,7 +43,6 @@ public class SQL {
            return true;
         }
         return false;
-
     }
 
     public boolean create_table(
@@ -65,26 +65,28 @@ public class SQL {
             System.err.println("Error occurred while writing JSON to file: " + e.getMessage());
             return false;
         }
-
         return true;
     }
 
 
-    public void drop_table(
+    public boolean drop_table(
         String table_name
-    ) throws IOException {
+    ){
         try {
-            Files.delete(Paths.get("schema/" + table_name + ".json"));
-            System.out.println("File deleted successfully.");
-        } catch (IOException e) {
-            System.err.println("Failed to DROP SCHEMA [" + table_name + "]");
-        }
-        try {
-            Files.delete(Paths.get("data/" + table_name + ".json"));
+            IO.delete_file("schema/" + table_name + ".json");
             System.out.println("File deleted successfully.");
         } catch (IOException e) {
             System.err.println("Failed to DROP TABLE [" + table_name + "]");
+            return false;
         }
+        try {
+            IO.delete_file("data/" + table_name + ".json");
+            System.out.println("File deleted successfully.");
+        } catch (IOException e) {
+            System.err.println("Failed to DROP TABLE [" + table_name + "]");
+            return false;
+        }
+        return true;
     }
 
     public boolean create_or_replace_table (
@@ -98,26 +100,12 @@ public class SQL {
         return create_table(table_name, schema);
     };
     
-    public Map<String, String> get_schema(
+    public Map<String, String> describe(
         String table_name
     ) throws FileNotFoundException, IOException {
-        Map<String, String> schema = new HashMap<>();
-        String fileName = "schema/" + table_name + ".json";
-        Gson gson = new Gson();
-
-        // Use FileReader to read JSON file
-        try (FileReader reader = new FileReader(fileName)) {
-            // Deserialize JSON file to Java object (nested Maps)
-            // Corrected: removed the duplicate variable declaration
-            schema = gson.fromJson(reader, Map.class);
-        } catch (IOException e) {
-            System.out.println("Error: " + e.getMessage());  // Updated to use System.out.println for simplicity
-        }
-        return schema;
+        Map<String, Object> schema = IO.from_json("schema/" + table_name + ".json");
+        return Cast.string_object_to_string_string(schema);
     }
-
-
-
 
 
     public boolean insert(
@@ -126,7 +114,7 @@ public class SQL {
     ) throws FileNotFoundException, IOException{
 
         // validate the insert 
-        Map<String, String> schema = get_schema(table_name);
+        Map<String, String> schema = describe(table_name);
         if(!validateRecord(record, schema)){
             return false;
         }
@@ -138,7 +126,7 @@ public class SQL {
         long fileSize = dataStream.length();
 
         // serialize
-        byte[] serialized = serializeRecord(schema, record);
+        byte[] serialized = Serializer.serialize(schema, record);
         long recordSize   = serialized.length;
         
         Map<String, Object> blockInfo = findSuitableBlock(recordSize, fileSize);
@@ -150,14 +138,14 @@ public class SQL {
         return true;
     }
 
-    public Map<String, Object> findSuitableBlock(
+    private Map<String, Object> findSuitableBlock(
         long recordSize,
         long fileSize
     ){
         return prepareNewBlock(recordSize, fileSize);
     }
 
-    public Map<String, Object> prepareNewBlock(
+    private Map<String, Object> prepareNewBlock(
         long recordSize,
         long fileSize
     ){
@@ -190,7 +178,7 @@ public class SQL {
         List<Filter> filters
     ) throws IOException{
 
-        Map<String, String> schema = get_schema(table_name);
+        Map<String, String> schema = describe(table_name);
 
         List<Map<String, Object>> records = new ArrayList<>();
 
@@ -200,14 +188,12 @@ public class SQL {
             long fileSize = dataStream.length();
 
             dataStream.seek(0);
-
-
             while(dataStream.getFilePointer() < fileSize){
 
                 byte[] block = new byte[(int) blockSize];
                 try {
                     dataStream.readFully(block);
-                    Map<String, Object> record = deserializeRecord(schema, block);
+                    Map<String, Object> record = Serializer.deserialize(schema, block);
                     boolean addRecord = true;
                     if(!filters.isEmpty()){
     
@@ -229,55 +215,6 @@ public class SQL {
     }
 
 
-    
-    public static byte[] serializeRecord(
-        Map<String, String> schema,
-        Map<String, Object> record
-    ) {
-
-        ByteBuffer buffer = ByteBuffer.allocate(264); // 4 (int) + 256 (string) + 4 (int)
-        for (Map.Entry<String, String> entry : schema.entrySet()) {
-            String key = entry.getKey();
-            String expectedType = entry.getValue();
-            Object value = record.get(key);
-
-            switch(expectedType){
-                case "INT":
-                    buffer.putInt((Integer) value); 
-                    break;
-                case "STRING":
-                    byte[] eventBytes = ((String) value).getBytes(StandardCharsets.UTF_8);
-                    buffer.put(eventBytes, 0, Math.min(eventBytes.length, 256));
-                    buffer.position(260);
-                    break;
-            }
-        }
-        return buffer.array();
-    }
-
-    public static Map<String, Object> deserializeRecord(
-        Map<String, String> schema,
-        byte[] data
-    ) {
-        ByteBuffer buffer = ByteBuffer.wrap(data);
-        Map<String, Object> record = new HashMap<>();
-
-        for (Map.Entry<String, String> entry : schema.entrySet()) {
-            String key = entry.getKey();
-            String expectedType = entry.getValue();
-            switch(expectedType){
-                case "INT":
-                    record.put(key, buffer.getInt());
-                    break;
-                case "STRING":
-                    byte[] stringBytes = new byte[256];
-                    buffer.get(stringBytes);
-                    record.put(key, new String(stringBytes, StandardCharsets.UTF_8).trim());
-                    break;
-            }
-        }
-        return record;
-    }
 
     // private void validate_record(){}
 

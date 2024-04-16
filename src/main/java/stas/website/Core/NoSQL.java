@@ -29,18 +29,20 @@ public class NoSQL {
 
     }
 
-    public void insert(
+    public boolean insert(
         String table_name,
         Map<String, Object> record
     ){
        String line = new Gson().toJson(record);
-       try (FileWriter fw = new FileWriter("data/"+ table_name + ".txt", true);
+       try (FileWriter fw = new FileWriter("data/"+ table_name + ".db", true);
        BufferedWriter bw = new BufferedWriter(fw);
        PrintWriter out = new PrintWriter(bw)) {
            out.println(line);
        } catch (IOException e) {
            System.err.println("An error occurred while writing to the file: " + e.getMessage());
+           return false;
        }
+       return true;
     }
 
 
@@ -49,7 +51,7 @@ public class NoSQL {
         List<Filter> filters
     ){
 
-        String filePath = "data/"+ table_name + ".txt";
+        String filePath = "data/"+ table_name + ".db";
         List<Map<String, Object>> records = new ArrayList<>();
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(filePath), StandardCharsets.UTF_8))) {

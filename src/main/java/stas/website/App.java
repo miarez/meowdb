@@ -25,6 +25,8 @@ import stas.website.Utils.Utils;
 
 import com.google.gson.Gson;
 
+// mvn test -Dtest=NoSQLTest#insert
+// mvn test -P service-tests  
 
 
 public class App 
