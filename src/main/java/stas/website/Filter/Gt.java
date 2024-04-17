@@ -15,6 +15,10 @@ public class Gt extends Filter {
         this.required_value  = required_value;
     }
 
+    public String getColumnName() {
+        return column_name;
+    }
+
     @Override
     public boolean invoke(
         Map<String, Object> row

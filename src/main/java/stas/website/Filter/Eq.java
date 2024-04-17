@@ -14,6 +14,11 @@ public class Eq extends Filter {
         this.column_name     = column_name;
         this.required_value  = required_value;
     }
+    
+    public String getColumnName() {
+        return column_name;
+    }
+
 
     @Override
     public boolean invoke(

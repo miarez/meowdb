@@ -1,15 +1,24 @@
 
 package stas.website.Index.Btree;
 
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.TreeMap;
 
+import com.google.common.graph.ElementOrder.Type;
+import com.google.common.reflect.TypeToken;
+import com.google.gson.Gson;
+
+import stas.website.Utils.Utils;
+
 public class BTree {
-    private static class Node {
+    public static class Node {
         TreeMap<String, ArrayList<Integer>> keys = new TreeMap<>();
-        ArrayList<Node> children = new ArrayList<>();
-        boolean isLeaf;
-        int t; // Minimum degree (defines the range for number of keys)
+        public ArrayList<Node> children = new ArrayList<>();
+        public boolean isLeaf;
+        public int t; // Minimum degree (defines the range for number of keys)
 
         Node(int t, boolean isLeaf) {
             this.t = t;
@@ -35,7 +44,7 @@ public class BTree {
     
 
     public Node root;
-    private int t; // Minimum degree
+    public int t; // Minimum degree
 
     public BTree(int t) {
         this.root = new Node(t, true);
@@ -118,4 +127,9 @@ public class BTree {
             return search(x.children.get(i), key);
         }
     }
+
+
+
+    
+    
 }

@@ -22,6 +22,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import stas.website.Filter.Filter;
+import stas.website.Index.Btree.BTree;
 import stas.website.Utils.Cast;
 import stas.website.Utils.IO;
 import stas.website.Utils.Serializer;
@@ -131,12 +132,28 @@ public class SQL {
         
         Map<String, Object> blockInfo = findSuitableBlock(recordSize, fileSize);
 
+
+        Utils.pp("WRITING TO BLOCK ID : " + blockInfo.get("id"));
+
         // write the record
         dataStream.seek((int) blockInfo.get("insertionPoint"));
         dataStream.write(serialized);
 
+        update_index("test_2", "event", (String) record.get("event"), (int) blockInfo.get("id"));
         return true;
     }
+
+    private void update_index(
+        String table_name,
+        String index_name,
+        String value,
+        int blockID
+    ){
+        BTree tree = IndexManager.read(table_name, index_name);
+        tree.insert(value, blockID);                 
+        IndexManager.commit(table_name, index_name, tree);
+    }
+
 
     private Map<String, Object> findSuitableBlock(
         long recordSize,
@@ -151,7 +168,6 @@ public class SQL {
     ){
 
         int blockId = (int) (fileSize / blockSize);
-        Utils.pp("BLOCKID : " + blockId);
         int spaceUsedInLastBlock = (int) (fileSize % blockSize);
 
 
@@ -184,13 +200,23 @@ public class SQL {
 
         String file_path = "data/" + table_name + ".db";
 
-        try (RandomAccessFile dataStream = new RandomAccessFile(file_path, "rw")) {
+
+        try (RandomAccessFile dataStream = new RandomAccessFile(file_path, "r")) {
             long fileSize = dataStream.length();
+
 
             dataStream.seek(0);
             while(dataStream.getFilePointer() < fileSize){
+                
+                long remaining = fileSize - dataStream.getFilePointer();  // Calculate remaining bytes
+                byte[] block;
 
-                byte[] block = new byte[(int) blockSize];
+                // If remaining bytes are less than the block size, read only the remaining bytes
+                if (remaining < blockSize) {
+                    block = new byte[(int) remaining];
+                } else {
+                    block = new byte[(int) blockSize];
+                }    
                 try {
                     dataStream.readFully(block);
                     Map<String, Object> record = Serializer.deserialize(schema, block);
@@ -214,6 +240,94 @@ public class SQL {
         return records;
     }
 
+
+    public List<Map<String, Object>> read_with_indexes(
+        String table_name,
+        List<Filter> filters
+    ) throws IOException{
+
+
+        List<Map<String, Object>> records = new ArrayList<>();
+
+        Map<String, String> schema = describe(table_name);
+
+        String file_path = "data/" + table_name + ".db";
+
+
+        ArrayList<Integer> indexes = new ArrayList<>();
+
+        for (Filter filter : filters) {
+            String filter_on_column = filter.getColumnName();
+            if(does_column_have_index(table_name, filter_on_column)){
+                BTree tree = IndexManager.read(table_name, filter_on_column);
+                ArrayList<Integer> column_indexes = tree.search("apply");
+                indexes.addAll(column_indexes);
+
+                // start leap frog here somehow....
+
+            }
+        }
+
+        // LOOKUP MY INDEXES
+
+        Utils.pp("MY INDEXES ARE : " + indexes);
+
+        // COMBINE ALL INDEXES VIA LEAP-FROG TODO
+
+
+        try (RandomAccessFile dataStream = new RandomAccessFile(file_path, "r")) {
+            long fileSize = dataStream.length();
+
+
+            for(Integer blockID : indexes){
+
+                dataStream.seek(blockSize * blockID);
+                
+                long remaining = fileSize - dataStream.getFilePointer();  // Calculate remaining bytes
+                byte[] block;
+    
+                // If remaining bytes are less than the block size, read only the remaining bytes
+                if (remaining < blockSize) {
+                    block = new byte[(int) remaining];
+                } else {
+                    block = new byte[(int) blockSize];
+                }    
+                try {
+                    dataStream.readFully(block);
+                    Map<String, Object> record = Serializer.deserialize(schema, block);
+                    boolean addRecord = true;
+                    if(!filters.isEmpty()){
+    
+                        for (Filter filter : filters) {
+                            if(!filter.invoke(record)){
+                                addRecord = false;
+                            }
+                        }
+                    }
+                    if(addRecord){
+                        records.add(record);
+                    }                    
+                } catch (IOException e){
+                    System.err.println("Can't read block");
+                }
+
+            }
+        }
+        return records;
+    }
+
+    private boolean does_column_have_index(
+        String table_name,
+        String index_name
+    )
+    {
+        String filePath = "index/" + table_name + "/" + index_name + ".json";
+        File file = new File(filePath);
+        if (file.exists()) {
+            return true;
+        }
+        return false;
+    }
 
 
     // private void validate_record(){}

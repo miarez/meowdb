@@ -15,6 +15,11 @@ public class Nin extends Filter {
         this.column_name     = column_name;
         this.required_values  = required_values;
     }
+    
+    public String getColumnName() {
+        return column_name;
+    }
+
 
     @Override
     public boolean invoke(

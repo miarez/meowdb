@@ -4,52 +4,59 @@ import java.util.ArrayList;
 
 import org.junit.Test;
 
+import stas.website.Core.IndexManager;
 import stas.website.Index.Btree.BTree;
 import stas.website.Utils.Utils;
 
 public class BTreeTest {
     
+    
     @Test
     public void test() {
-        BTree tree = new BTree(2); // Create a B-Tree with minimum degree 2
-        tree.insert("apply", 19);
-        tree.insert("apply", 200);
 
-        tree.insert("serp", 200);
-        tree.insert("meow", 200);
-        tree.insert("woof", 200);
-        tree.insert("quack", 200);
-        tree.insert("bill", 20);
-        tree.insert("click", 200);
-        tree.insert("apply", 200);
-        tree.insert("sero", 200);
-        tree.insert("stonks", 200);
-        tree.insert("nostonks", 200);
-        tree.insert("sad", 200);
-        tree.insert("sam", 200);
-        tree.insert("sappy", 200);
-        tree.insert("sal", 200);        
-        tree.insert("sally", 200);                
-        tree.insert("saul", 200);                        
-        tree.insert("happy", 200);
-        tree.insert("click", 200);
-        tree.insert("click", 200);
-        tree.insert("bill", 200);
-        tree.insert("weoo", 200);
+        BTree tree = new BTree(2);
+        tree.insert("apply", 1); 
+        tree.insert("apply", 10); 
+        tree.insert("click", 50); 
 
-        
-        // Test search functionality
-        ArrayList<Integer> offsets = tree.search("event1");
-        System.out.println("Offsets for 'event1': " + offsets);
-        offsets = tree.search("event2");
-        System.out.println("Offsets for 'event2': " + offsets);
+        ArrayList<Integer> offsets = tree.search("apply");
+        System.out.println("Offsets for 'apply': " + offsets);
+        tree.printTree(tree.root, "", true);
+    }
+
+    @Test
+    public void read_from_file() {
+
+        BTree tree = IndexManager.read("test_2");
+        Utils.pp("FROM READ");
+        tree.printTree(tree.root, "", true);
+    }
 
 
+    @Test
+    public void write_to_file() {
+        BTree tree = new BTree(2);
+        tree.insert("apply", 1); 
+        tree.insert("apply", 10); 
+        tree.insert("click", 50); 
+        IndexManager.commit("test_2", tree);
+    }
+
+    @Test 
+    public void update_disk_index(){
+
+        String index_name = "test_2";
+        BTree tree = IndexManager.read("test_2");
+        Utils.pp("FROM READ");
         tree.printTree(tree.root, "", true);
 
+        tree.insert("view", 9);                 
+        tree.insert("click", 8);
 
-        
+        IndexManager.commit(index_name, tree);
     }
+
+    
 
 
 }
