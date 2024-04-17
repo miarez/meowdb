@@ -27,7 +27,7 @@ public class BTreeTest {
     @Test
     public void read_from_file() {
 
-        BTree tree = IndexManager.read("test_2");
+        BTree tree = IndexManager.read("test_2", "event");
         Utils.pp("FROM READ");
         tree.printTree(tree.root, "", true);
     }
@@ -39,21 +39,21 @@ public class BTreeTest {
         tree.insert("apply", 1); 
         tree.insert("apply", 10); 
         tree.insert("click", 50); 
-        IndexManager.commit("test_2", tree);
+        IndexManager.commit("test_2", "event",tree);
     }
 
     @Test 
     public void update_disk_index(){
 
         String index_name = "test_2";
-        BTree tree = IndexManager.read("test_2");
+        BTree tree = IndexManager.read("test_2", "event");
         Utils.pp("FROM READ");
         tree.printTree(tree.root, "", true);
 
         tree.insert("view", 9);                 
         tree.insert("click", 8);
 
-        IndexManager.commit(index_name, tree);
+        IndexManager.commit(index_name, "event", tree);
     }
 
     
