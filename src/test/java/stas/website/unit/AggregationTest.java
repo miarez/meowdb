@@ -14,19 +14,21 @@ import stas.website.Utils.Utils;
 public class AggregationTest {
     
 
-    public abstract class AggregationFunction {
+    public abstract class AggregationFunction<T, R> {
+
+        
         public String column_name;
         public String name;
         public abstract String get_column_name();
         public abstract String get_name();
-        public int invoke(int old_value, int i) {
-            // TODO Auto-generated method stub
-            throw new UnsupportedOperationException("Unimplemented method 'invoke'");
-        }
+
+        // Generic method for different implementations
+        public abstract R invoke(List<T> list); 
+
         
     }
 
-    public class Count extends AggregationFunction {
+    public class Count extends AggregationFunction<Object, Integer> {
         public String column_name;
         public String name;
         public Count(
@@ -41,14 +43,12 @@ public class AggregationTest {
         public String get_name(){
             return this.name;
         }
-        public int invoke(
-            int old_value,
-            int new_value
-        ){
-            return old_value + new_value;
+        public Integer invoke(List<Object> list){
+            return list.size(); 
         }
+
     }
-    public class Sum extends AggregationFunction {
+    public class Sum extends AggregationFunction<Integer, Integer> {
         public String column_name;
         public String name;
         public Sum(
@@ -63,11 +63,13 @@ public class AggregationTest {
         public String get_name(){
             return this.name;
         }
-        public int invoke(
-            int old_value,
-            int new_value
-        ){
-            return old_value + new_value;
+
+        public Integer invoke(List<Integer> list){
+            int sum = 0;
+            for (int num : list) {
+                sum += num;
+            }
+            return sum; // Sum the integers in the list
         }
     }
 
@@ -102,9 +104,7 @@ public class AggregationTest {
 
 
 
-
-
-        Map<String, Map<String, Integer>> out = new HashMap<>();
+        Map<String, Map<String, List<Object>>> out = new HashMap<>();
 
         for(Map<String, Object> record : records){
             StringBuilder terms_value = new StringBuilder();
@@ -125,39 +125,40 @@ public class AggregationTest {
 
                 String agg_fun_name = aggFun.get_name();
 
-                Map<String, Integer> agg_fun_value = new HashMap<>();
+                Map<String, List<Object>> agg_fun_value = new HashMap<>();
                 
-                int old_value = 0;
+                List<Object> running_list = new ArrayList<>();
                 if(out.containsKey(key)){
                     agg_fun_value = out.get(key);
                     if(agg_fun_value.containsKey(agg_fun_name)){
-                        old_value = (int) agg_fun_value.get(agg_fun_name);
+                        running_list = agg_fun_value.get(agg_fun_name);
                     }
                 }
-
                 String column_name = aggFun.get_column_name();
-
-
-                int value;
-                switch(agg_fun_type){
-                    case "Count":
-                        value = old_value += 1;
-                        break;
-                    case "Sum":
-                        int record_value = (int) record.get(column_name);
-                        value = old_value + record_value;
-                        break;
-                    default:
-                        throw new IllegalArgumentException("UNRECOGNIZED AGGREGATION FUNCTION");
-                }
-
-                agg_fun_value.put(agg_fun_name, value);
+                running_list.add(record.get(column_name));
+                agg_fun_value.put(agg_fun_name, running_list);
                 out.put(key, agg_fun_value);
             }
+        }
 
 
+        // Map<String, Map<String, List<Object>>> out = new HashMap<>();
+
+        for (Map.Entry<String, Map<String, List<Object>>> outerEntry : out.entrySet()) {
+            String group_by_key = outerEntry.getKey();
+            Map<String, List<Object>> innerMap = outerEntry.getValue();
+
+
+            for (Map.Entry<String, List<Object>> innerEntry : innerMap.entrySet()) {
+
+                String agg_fun_name = innerEntry.getKey();
+                List<Object> values = innerEntry.getValue();               
+                Utils.pp(agg_fun_name);
+        
+            }
 
         }
+
 
         Utils.pp(out);
 
